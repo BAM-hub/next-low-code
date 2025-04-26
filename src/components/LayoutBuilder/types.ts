@@ -4,13 +4,13 @@ export type ElementSlot = {
     parentId: string;
     id: string;
   };
+  props?: any;
 };
 
 export type MovedChildernMeta = {
   key: string;
   isMoved: boolean;
   slot: ElementSlot[];
-  props?: object;
 };
 
 export type Slot = {
@@ -24,3 +24,7 @@ export type DialogRefType = {
   open: (parentId?: string) => void;
   close: () => void;
 };
+
+export type NextPageSearchParams = Promise<{
+  [key: string]: string | string[] | undefined;
+}>;
