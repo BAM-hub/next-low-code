@@ -5,11 +5,13 @@ import { removeFromSlot } from "./utils";
 import Draggable from "./Draggable";
 
 function RenderElements({
+  isClient,
   slots,
   Element,
   movedChildern,
   setMovedChildren,
 }: {
+  isClient: boolean;
   slots: ElementSlot[];
   Element: React.ReactElement;
   movedChildern: MovedChildernMeta[];
@@ -38,9 +40,14 @@ function RenderElements({
               id={slot.forkMeta.id}
               meta={slot}
             >
-              {cloneElement(Element, {
-                key: slot.forkMeta.id,
-              })}
+              {isClient ? (
+                cloneElement(Element, {
+                  key: slot.forkMeta.id,
+                  ...slot.props,
+                })
+              ) : (
+                <>{Element}</>
+              )}
             </Draggable>
           </div>,
           document.getElementById(slot.slotKey)!
