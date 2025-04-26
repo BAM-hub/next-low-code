@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "../ui/button";
 
-const test1 = (props: Props) => {
+const test1 = (props: { title: string }) => {
   return (
     <div>
       <Button>
