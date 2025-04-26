@@ -1,5 +1,13 @@
 "use client";
-import React, { Fragment, PropsWithChildren, useEffect, useState } from "react";
+import React, {
+  Children,
+  Fragment,
+  PropsWithChildren,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
@@ -9,14 +17,16 @@ import Draggable from "./Draggable";
 import RenderElements from "./RenderElements";
 import { removeFromSlot } from "./utils";
 import RenderSlots from "./RenderSlots";
+import { useRouter } from "next/navigation";
 
-const Admin = ({}: PropsWithChildren) => {
+const Admin = ({ children }: PropsWithChildren) => {
   const [movedChildern, setMovedChildern] = useState<MovedChildernMeta[]>([]);
-
+  const router = useRouter();
   const { data, isLoading } = useQuery({
     queryKey: ["availableComponents"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/ui/availableComponents");
+      const params = new URLSearchParams({ type: "client" });
+      const res = await fetch(`/api/admin/ui/availableComponents?${params}`);
       const data: {
         result: {
           components: {
@@ -27,19 +37,25 @@ const Admin = ({}: PropsWithChildren) => {
       } = await res.json();
       const Elements = await Promise.all(
         data.result.components?.map((dir) => {
-          return dynamic(async () => await import("../elements/" + dir.name));
-        })
+          return dynamic(async () => await import("../elements/" + dir));
+        }, <div>loading...</div>)
       );
-
       return {
         components: Elements,
       };
     },
   });
 
+  const mergedChildren = useMemo(() => {
+    const childrenArray = Children.toArray(children);
+    console.log({ childrenArray });
+
+    return [...(data?.components || []), ...childrenArray];
+  }, [data?.components]);
+
   useEffect(() => {
-    if (!data?.components.length) return;
-    const initialMovedChildern = data?.components?.map((_, idx) => {
+    if (!mergedChildren?.length) return;
+    const initialMovedChildern = mergedChildren?.map((_, idx) => {
       return {
         key: idx.toString(),
         isMoved: false,
@@ -48,7 +64,7 @@ const Admin = ({}: PropsWithChildren) => {
       };
     });
     setMovedChildern(initialMovedChildern);
-  }, [data?.components]);
+  }, [mergedChildren]);
 
   function changeSlot(event: DragEndEvent) {
     const target = event.active.data.current as ElementSlot;
@@ -82,7 +98,6 @@ const Admin = ({}: PropsWithChildren) => {
 
   function handleDragEnd(event: DragEndEvent) {
     console.log(event);
-
     if (event.over) {
       const target = event.active.data.current as Slot;
       let newMovedChildern = movedChildern;
@@ -105,6 +120,9 @@ const Admin = ({}: PropsWithChildren) => {
                   id: nanoid(),
                   parentId: child.key,
                 },
+                props: {
+                  title: "hello",
+                },
               },
             ],
           } as MovedChildernMeta;
@@ -125,7 +143,7 @@ const Admin = ({}: PropsWithChildren) => {
   if (isLoading || movedChildern?.length === 0) return <div>loading...</div>;
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      {data?.components?.map((Child, idx) => {
+      {mergedChildren?.map((Child, idx) => {
         const moved = movedChildern[idx];
         return (
           <Fragment key={idx}>
@@ -133,14 +151,21 @@ const Admin = ({}: PropsWithChildren) => {
               key={idx}
               id={idx.toString()}
             >
-              <Child />
+              {typeof Child === "function" ? <Child /> : <>{Child}</>}
             </Draggable>
             {moved && moved.isMoved && (
               <RenderElements
                 slots={moved.slot}
-                Element={React.cloneElement(<Child />, {
-                  key: "sd",
-                })}
+                isClient={typeof Child === "function"}
+                Element={
+                  typeof Child === "function" ? (
+                    React.cloneElement(<Child />, {
+                      key: "sd",
+                    })
+                  ) : (
+                    <>{Child}</>
+                  )
+                }
                 movedChildern={movedChildern}
                 setMovedChildren={setMovedChildern}
               />
@@ -152,6 +177,7 @@ const Admin = ({}: PropsWithChildren) => {
         movedChildern={movedChildern}
         setMovedChildren={setMovedChildern}
       />
+      <button onClick={() => router.refresh()}>refetch</button>
     </DndContext>
   );
 };
