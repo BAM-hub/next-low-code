@@ -11,7 +11,9 @@ import Droppable from "./Droppable";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { nanoid } from "nanoid";
+import { nanoid, customAlphabet } from "nanoid";
+
+const randomNumber = customAlphabet("0123456789");
 
 function RenderSlots({
   movedChildern,
@@ -55,6 +57,7 @@ function RenderSlots({
       });
     });
   }
+
   return (
     <div>
       <Droppable
@@ -120,6 +123,14 @@ function RenderSlots({
       >
         +
       </Button>
+      <Button
+        onClick={() => {
+          console.log(movedChildern);
+          console.log(slots);
+        }}
+      >
+        show Data
+      </Button>
     </div>
   );
 }
@@ -157,7 +168,7 @@ function Modal({
     if (slotsCount > 1) {
       parentSlot = {
         parentId: context.current?.parentId,
-        id: nanoid(),
+        id: randomNumber(),
         classNames: "grid grid-cols-2 gap-4",
         type: "1col",
       } as Slot;
@@ -166,7 +177,7 @@ function Modal({
     const slots = new Array(slotsCount).fill(0).map(() => {
       return {
         parentId: parentSlot?.id || context.current?.parentId,
-        id: nanoid(),
+        id: randomNumber(),
         classNames: cn("flex gap-4", type === "1col" ? "w-full" : "flex-1"),
         type,
       } as Slot;
@@ -180,6 +191,7 @@ function Modal({
     } else {
       setSlots((prev) => [...prev, ...slots]);
     }
+    context.current = null;
   }
 
   return (
