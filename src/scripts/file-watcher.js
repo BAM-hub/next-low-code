@@ -5,10 +5,18 @@ const fs = require("fs");
 const dirToWatch = path.resolve(__dirname, "../components/serverElements");
 const clientDir = path.resolve(__dirname, "../components/elements");
 
-const serverComponents = fs.readdirSync(dirToWatch).map((value) => ({
-  name: value,
-  isServer: true,
-}));
+const serverComponents = fs
+  .readdirSync(dirToWatch, {
+    withFileTypes: true,
+  })
+  .map((value) => {
+    if (!value.isFile()) return null;
+    return {
+      name: value.name,
+      isServer: true,
+    };
+  })
+  .filter((value) => value);
 
 const clientComponents = fs.readdirSync(clientDir).map((value) => ({
   name: value,
