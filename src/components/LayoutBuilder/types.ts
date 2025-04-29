@@ -9,6 +9,7 @@ export type ElementSlot = {
 
 export type MovedChildernMeta = {
   key: string;
+  isServer: boolean;
   isMoved: boolean;
   slot: ElementSlot[];
 };
