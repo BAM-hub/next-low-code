@@ -2,14 +2,15 @@
 import React, {
   Children,
   Fragment,
+  isValidElement,
   PropsWithChildren,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { nanoid } from "nanoid";
 import { ElementSlot, MovedChildernMeta, Slot } from "./types";
@@ -18,8 +19,30 @@ import RenderElements from "./RenderElements";
 import { removeFromSlot } from "./utils";
 import RenderSlots from "./RenderSlots";
 import { useRouter } from "next/navigation";
+import { Button } from "../ui/button";
+import { z } from "zod";
+
+const serverComponentObject = z.object({
+  _owner: z.object({
+    env: z.string(),
+  }),
+});
+
+function isServerComponent(child: unknown) {
+  if (isValidElement(child)) {
+    try {
+      const paresdChild = serverComponentObject.parse(child);
+      return paresdChild._owner.env === "Server";
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
 
 const Admin = ({ children }: PropsWithChildren) => {
+  const prevMovedChildren = useRef<MovedChildernMeta[]>([]);
+  const firstRender = useRef<boolean>(true);
   const [movedChildern, setMovedChildern] = useState<MovedChildernMeta[]>([]);
   const router = useRouter();
   const { data, isLoading } = useQuery({
@@ -49,22 +72,42 @@ const Admin = ({ children }: PropsWithChildren) => {
   const mergedChildren = useMemo(() => {
     const childrenArray = Children.toArray(children);
     console.log({ childrenArray });
-
     return [...(data?.components || []), ...childrenArray];
-  }, [data?.components]);
+  }, [data?.components, children]);
 
   useEffect(() => {
-    if (!mergedChildren?.length) return;
-    const initialMovedChildern = mergedChildren?.map((_, idx) => {
+    const initialMovedChildern = mergedChildren?.map((child, idx) => {
       return {
         key: idx.toString(),
         isMoved: false,
         slot: [],
         props: {},
+        isServer: isServerComponent(child),
       };
     });
-    setMovedChildern(initialMovedChildern);
-  }, [mergedChildren]);
+    const childrenKeys = mergedChildren.map((child) =>
+      isValidElement(child) ? child.key : null
+    );
+    const prevChidlrenKeys = prevMovedChildren.current.map((child) =>
+      isValidElement(child) ? child.key : null
+    );
+    const isChanged =
+      childrenKeys.length === prevChidlrenKeys.length
+        ? childrenKeys.filter((movedChild, index) => {
+            return movedChild === prevChidlrenKeys[index];
+          }).length > 0
+        : true;
+    if (isChanged) {
+      if (firstRender.current && !isLoading && mergedChildren.length > 0) {
+        prevMovedChildren.current = initialMovedChildern;
+        setMovedChildern(initialMovedChildern);
+        firstRender.current = false;
+      } else {
+        // @Todo handle state change types inorder to handle server components
+        console.log("todo");
+      }
+    }
+  }, [movedChildern, isLoading, mergedChildren]);
 
   function changeSlot(event: DragEndEvent) {
     const target = event.active.data.current as ElementSlot;
@@ -96,7 +139,7 @@ const Admin = ({ children }: PropsWithChildren) => {
     return newMovedChildern;
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     console.log(event);
     if (event.over) {
       const target = event.active.data.current as Slot;
@@ -106,7 +149,11 @@ const Admin = ({ children }: PropsWithChildren) => {
         setMovedChildern(newMovedChildern);
         return;
       }
-
+      const childToAdd = newMovedChildern.filter(
+        (child) => child.key.toString() === event.active.id
+      );
+      if (childToAdd[0] && childToAdd[0].isServer) {
+      }
       newMovedChildern = newMovedChildern.map((child) => {
         if (child.key.toString() === event.active.id) {
           return {
@@ -140,7 +187,24 @@ const Admin = ({ children }: PropsWithChildren) => {
     }
   }
 
-  if (isLoading || movedChildern?.length === 0) return <div>loading...</div>;
+  const { mutate } = useMutation({
+    mutationFn: async () => {
+      await fetch("/api/admin/props", {
+        method: "POST",
+        body: JSON.stringify({
+          filename: "test",
+          componentName: "Button",
+          data: {
+            msg: "test",
+            extra: 5,
+            title: "5",
+          },
+        }),
+      });
+    },
+  });
+
+  // if (isLoading || movedChildern?.length === 0) return <div>loading...</div>;
   return (
     <DndContext onDragEnd={handleDragEnd}>
       {mergedChildren?.map((Child, idx) => {
@@ -178,6 +242,7 @@ const Admin = ({ children }: PropsWithChildren) => {
         setMovedChildren={setMovedChildern}
       />
       <button onClick={() => router.refresh()}>refetch</button>
+      <Button onClick={() => mutate()}>add Props</Button>
     </DndContext>
   );
 };
