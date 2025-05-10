@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { serial, text, boolean, pgTable } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
 
 export const Passwords = pgTable("password", {
   id: serial("id").primaryKey(),
@@ -56,3 +57,17 @@ export const componentToPageRelations = relations(
     }),
   })
 );
+
+export const Slot = pgTable("slot", {
+  id: text("id").primaryKey(),
+  pageId: text("pageId").notNull(),
+  parentId: text("parentId"),
+  classNames: text("classNames"),
+  type: text("type"),
+});
+
+export const slotInserteSchema = createInsertSchema(Slot);
+
+export const SlotRelations = relations(Slot, ({ many }) => ({
+  pageId: many(Page),
+}));
