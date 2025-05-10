@@ -11,7 +11,10 @@ import Droppable from "./Droppable";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { nanoid, customAlphabet } from "nanoid";
+import { customAlphabet } from "nanoid";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 const randomNumber = customAlphabet("0123456789");
 
@@ -22,8 +25,10 @@ function RenderSlots({
   movedChildern: MovedChildernMeta[];
   setMovedChildren: React.Dispatch<React.SetStateAction<MovedChildernMeta[]>>;
 }) {
+  const params = useSearchParams();
   const [slots, setSlots] = useState<Slot[]>([]);
   const dialogRef = useRef<DialogRefType>(null);
+
   function getChildSlots(id: string, slots: Slot[]) {
     const childSlots = slots.filter((slot) => slot.parentId === id);
     if (childSlots.length === 0) return [];
@@ -58,16 +63,39 @@ function RenderSlots({
     });
   }
 
+  const { isLoading } = useQuery({
+    queryKey: ["init_slots", params.get("page")],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/slots?pageId=${params.get("page")}`);
+      const data = await res.json();
+      setSlots(data.data);
+      return data.data;
+    },
+  });
+
+  const { mutate } = useMutation({
+    mutationFn: async () => {
+      fetch("/api/admin/slots", {
+        method: "POST",
+        body: JSON.stringify({
+          data: slots.map((slot) => ({
+            ...slot,
+            pageId: params.get("page"),
+          })),
+          pageId: params.get("page"),
+        }),
+      });
+    },
+  });
+
+  if (isLoading) return <div>loading ...</div>;
+
   return (
     <div>
-      <Droppable
-        id="dropable"
-        delete={deleteSlot}
-      >
-        <div id="dropable"></div>
-      </Droppable>
       {slots.map((slot) => {
         if (slot.parentId) {
+          const parent = document.getElementById(slot.parentId);
+          if (!parent) return null;
           return (
             <Fragment key={slot.id}>
               {createPortal(
@@ -131,6 +159,14 @@ function RenderSlots({
       >
         show Data
       </Button>
+      <Button
+        onClick={() => {
+          mutate();
+        }}
+      >
+        Save
+      </Button>
+      <Link href={`/admin/preview?pageId=${params.get("page")}`}>preview</Link>
     </div>
   );
 }
@@ -144,7 +180,7 @@ function Modal({
 }) {
   const context = useRef<{ parentId: string }>(null);
   const localRef = useRef<HTMLDialogElement>(null);
-  const [_, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   useImperativeHandle(ref, () => ({
     open: (parentId) => {
       if (parentId) {
