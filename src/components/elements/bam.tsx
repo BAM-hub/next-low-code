@@ -3,7 +3,7 @@ import React from "react";
 type Props = {};
 
 const bam = (props: Props) => {
-  return <div>bam</div>;
+  return <div {...props}>bam</div>;
 };
 
 export default bam;

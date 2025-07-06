@@ -1,6 +1,7 @@
 "use client";
 import React, {
   Children,
+  cloneElement,
   Fragment,
   isValidElement,
   PropsWithChildren,
@@ -61,53 +62,78 @@ const Admin = ({ children }: PropsWithChildren) => {
       const Elements = await Promise.all(
         data.result.components?.map((dir) => {
           return dynamic(async () => await import("../elements/" + dir));
-        }, <div>loading...</div>)
+        })
       );
+
       return {
-        components: Elements,
+        components: Elements.map((Element, idx) => {
+          return cloneElement(<Element />, {
+            ...Element.props,
+            "data-id": data.result.components[idx],
+          });
+        }),
       };
     },
   });
 
+  const { data: initialMovedChildern } = useQuery({
+    queryKey: ["initialMovedChildern"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/components?pageId=test");
+      const data = await res.json();
+      console.log(data);
+      return data.result.components;
+    },
+    enabled: !!data,
+  });
+
   const mergedChildren = useMemo(() => {
     const childrenArray = Children.toArray(children);
-    console.log({ childrenArray });
+    console.log(data?.components);
     return [...(data?.components || []), ...childrenArray];
   }, [data?.components, children]);
 
   useEffect(() => {
-    const initialMovedChildern = mergedChildren?.map((child, idx) => {
-      return {
-        key: idx.toString(),
-        isMoved: false,
-        slot: [],
-        props: {},
-        isServer: isServerComponent(child),
-      };
-    });
-    const childrenKeys = mergedChildren.map((child) =>
-      isValidElement(child) ? child.key : null
-    );
-    const prevChidlrenKeys = prevMovedChildren.current.map((child) =>
-      isValidElement(child) ? child.key : null
-    );
-    const isChanged =
-      childrenKeys.length === prevChidlrenKeys.length
-        ? childrenKeys.filter((movedChild, index) => {
-            return movedChild === prevChidlrenKeys[index];
-          }).length > 0
-        : true;
-    if (isChanged) {
-      if (firstRender.current && !isLoading && mergedChildren.length > 0) {
-        prevMovedChildren.current = initialMovedChildern;
-        setMovedChildern(initialMovedChildern);
-        firstRender.current = false;
-      } else {
-        // @Todo handle state change types inorder to handle server components
-        console.log("todo");
+    // function getComponentId(compoennt: unknown) {
+    //   if (isValidElement(compoennt)) {
+    //     return compoennt.props["data-id"];
+    //   }
+    //   throw new Error("Invalid component");
+    // }
+    // const initialMovedChildern = mergedChildren?.map((child, idx) => {
+    //   return {
+    //     key: getComponentId(child),
+    //     isMoved: false,
+    //     slot: [],
+    //     props: {},
+    //     isServer: isServerComponent(child),
+    //   };
+    // });
+    if (initialMovedChildern) {
+      const childrenKeys = mergedChildren.map((child) =>
+        isValidElement(child) ? child.key : null
+      );
+      const prevChidlrenKeys = prevMovedChildren.current.map((child) =>
+        isValidElement(child) ? child.key : null
+      );
+      const isChanged =
+        childrenKeys.length === prevChidlrenKeys.length
+          ? childrenKeys.filter((movedChild, index) => {
+              return movedChild === prevChidlrenKeys[index];
+            }).length > 0
+          : true;
+      if (isChanged) {
+        if (firstRender.current && !isLoading && mergedChildren.length > 0) {
+          prevMovedChildren.current = initialMovedChildern;
+          setMovedChildern(initialMovedChildern);
+          firstRender.current = false;
+        } else {
+          // @Todo handle state change types inorder to handle server components
+          console.log("todo");
+        }
       }
     }
-  }, [movedChildern, isLoading, mergedChildren]);
+  }, [initialMovedChildern, isLoading, mergedChildren]);
 
   function changeSlot(event: DragEndEvent) {
     const target = event.active.data.current as ElementSlot;
@@ -139,6 +165,31 @@ const Admin = ({ children }: PropsWithChildren) => {
     return newMovedChildern;
   }
 
+  const { mutate: addToSlot } = useMutation({
+    mutationFn: async ({
+      slotId,
+      componentId,
+    }: {
+      slotId: string;
+      componentId: string;
+    }) => {
+      return await fetch("/api/admin/components", {
+        method: "POST",
+        body: JSON.stringify({
+          pageId: "test",
+          componentId,
+          slot: slotId,
+        }),
+      });
+    },
+    onSuccess: (data) => {
+      console.log(data);
+    },
+    onError: (error) => {
+      console.log(error);
+    },
+  });
+
   async function handleDragEnd(event: DragEndEvent) {
     console.log(event);
     if (event.over) {
@@ -149,11 +200,17 @@ const Admin = ({ children }: PropsWithChildren) => {
         setMovedChildern(newMovedChildern);
         return;
       }
+      console.log(event.active.id);
       const childToAdd = newMovedChildern.filter(
         (child) => child.key.toString() === event.active.id
       );
       if (childToAdd[0] && childToAdd[0].isServer) {
       }
+      // to do send event to server
+      void addToSlot({
+        slotId: event.over.id,
+        componentId: childToAdd[0].key,
+      });
       newMovedChildern = newMovedChildern.map((child) => {
         if (child.key.toString() === event.active.id) {
           return {
@@ -213,7 +270,8 @@ const Admin = ({ children }: PropsWithChildren) => {
           <Fragment key={idx}>
             <Draggable
               key={idx}
-              id={idx.toString()}
+              // id={idx.toString()}
+              id={Child.props["data-id"]}
             >
               {typeof Child === "function" ? <Child /> : <>{Child}</>}
             </Draggable>

@@ -1,8 +1,22 @@
 "use client";
 
+import { useState } from "react";
+
 const Test = (props) => {
   console.log({ props });
-  return <div className="">{props.title || "Button"}</div>;
+  const [count, setCount] = useState(0);
+  return (
+    <div
+      className=""
+      onClick={() => {
+        setCount(count + 1);
+      }}
+      {...props}
+    >
+      {props.title || "Button"}
+      {count}
+    </div>
+  );
 };
 
 export default Test;

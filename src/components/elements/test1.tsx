@@ -1,14 +1,22 @@
-import React from "react";
-import { Button } from "../ui/button";
+"use client";
 
-const test1 = (props: { title: string }) => {
+import { useState } from "react";
+
+const Test = (props) => {
+  console.log("Test component rendered", props);
+  const [count, setCount] = useState(0);
   return (
-    <div>
-      <Button>
-        <div className="">{props.title || "Button"}</div>
-      </Button>
+    <div
+      className=""
+      onClick={() => {
+        setCount(count + 1);
+      }}
+      {...props}
+    >
+      {props.title || "Button"}
+      {count}
     </div>
   );
 };
 
-export default test1;
+export default Test;

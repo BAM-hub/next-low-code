@@ -37,15 +37,16 @@ export const Component = pgTable("component", {
   isServer: boolean("isServer").default(false).notNull(),
 });
 
-export const ComponentToPage = pgTable("componentToPage", {
-  props: text("props").notNull(),
+export const ComponentToPage = pgTable("componenttopage", {
   pageId: text("pageId").notNull(),
   componentId: text("path").notNull(),
+  slot: text("slot"),
 });
 
 export const ComponentRelations = relations(Component, ({ many }) => ({
   pageId: many(Page),
   componentToPages: many(ComponentToPage),
+  slots: many(Slot),
 }));
 
 export const componentToPageRelations = relations(

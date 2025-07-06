@@ -27,7 +27,12 @@ const RenderServerElements = async (props: {
   return (
     <>
       {serverComponents.map((Component, index) => {
-        return <Component key={index} />;
+        return (
+          <Component
+            key={index}
+            data-id={serverComponentsPathsJson.at(index)}
+          />
+        );
       })}
     </>
   );
